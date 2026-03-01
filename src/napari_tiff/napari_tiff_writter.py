@@ -43,7 +43,7 @@ def get_pint_time_unit_to_shortcut() -> dict[pint.Unit, str]:
     }
 
 
-def _chek_if_images_could_be_concatenated(layer_data: list[FullLayerData]) -> None:
+def _check_if_images_could_be_concatenated(layer_data: list[FullLayerData]) -> None:
     """Check if images could be concatenated.
 
     Parameters
