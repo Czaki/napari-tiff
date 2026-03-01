@@ -136,11 +136,11 @@ def prepare_metadata(
             "PositionZ": axis_to_translate.get('z', 0),
             "PositionY": axis_to_translate.get('y', 0),
             "PositionX": axis_to_translate.get('x', 0),
-            "ExposureTime": axis_to_translate.get('t', 0),
+            "DeltaT": axis_to_translate.get('t', 0),
             "PositionZUnit": axis_to_unit.get('z', 'pixel'),
             "PositionYUnit": axis_to_unit.get('y', 'pixel'),
             "PositionXUnit": axis_to_unit.get('x', 'pixel'),
-            "ExposureTimeUnit": axis_to_unit.get('t', 's'),
+            "DeltaTUnit": axis_to_unit.get('t', 's'),
         }
         for t, z, c in product(range(axis_size.get('t', 1)), range(axis_size.get('z', 1)), range(data_shape[0]))
     ]
@@ -199,7 +199,7 @@ def determine_axis_order(layer_metadata: Mapping) -> list[Literal["c", "z", "t",
 
 
 def images_layer_writer(path: str, layer_data: list[FullLayerData]) -> list[str]:
-    _chek_if_images_could_be_concatenated(layer_data)
+    _check_if_images_could_be_concatenated(layer_data)
     name = os.path.splitext(os.path.basename(path))[0]
     concatenated_data = np.stack([x[0] for x in layer_data])
     channel_names = [x[1]["name"] for x in layer_data]

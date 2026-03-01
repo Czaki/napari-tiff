@@ -303,9 +303,9 @@ def get_scale_translate_and_units_from_ome(pixels: dict[str, Any], axes: str, sh
         if ax == 't':
             time_increment = float(pixels.get("TimeIncrement", 1.0))
             time_unit = pixels.get("TimeIncrementUnit", "pixel")
-            time_translation = plane_info.get(f"ExposureTime", 0)
+            time_translation = plane_info.get(f"DeltaT", 0)
             if time_translation != 0:
-                time_translation_unit = plane_info.get(f"ExposureTimeUnit", "s")
+                time_translation_unit = plane_info.get(f"DeltaTUnit", "s")
                 time_translation = (reg(time_translation_unit) * time_translation).to(time_unit).magnitude
             pixel_size.append(time_increment)
             units.append(time_unit)
@@ -322,14 +322,6 @@ def get_scale_translate_and_units_from_ome(pixels: dict[str, Any], axes: str, sh
             units.append(spatial_unit)
             translate.append(physical_translation)
     return pixel_size, translate, units
-
-"""
-self.shift = [
-                meta_data["Pixels"]["Plane"][0][f"Position{x}"]
-                * name_to_scalar[meta_data["Pixels"]["Plane"][0][f"Position{x}Unit"]]
-                for x in ["Z", "Y", "X"]
-            ]
-            """
 
 
 def get_ome_tiff_metadata(tif: TiffFile) -> dict[str, Any]:
