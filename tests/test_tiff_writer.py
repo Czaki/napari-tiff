@@ -1,4 +1,4 @@
-from napari_tiff.napari_tiff_writter import images_layer_writer
+from napari_tiff.napari_tiff_writer import images_layer_writer
 from napari_tiff.napari_tiff_reader import reader_function
 
 import pytest
