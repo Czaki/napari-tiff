@@ -36,7 +36,8 @@ contributions:
     - '*.tf2'
     - '*.btf'
     - '*.eer'
-  writer:
+  writers:
     - command: napari-tiff.write_image
+      display_name: ome-tiff
       layer_types: ['image+']
       filename_extensions: ['.tiff', '.tif']
