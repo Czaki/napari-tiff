@@ -62,6 +62,8 @@ def _check_if_images_could_be_concatenated(layer_data: list[FullLayerData]) -> N
         raise ValueError("All images must have the same dtype to be concatenated")
     if len (set(tuple(x[1]["scale"]) for x in layer_data)) != 1:
         raise ValueError("All images must have the same scale to be concatenated")
+    if len(layer_data) > 1 and any(x[1].get("rgb", False) for x in layer_data):
+        raise ValueError("Cannot concatenate RGB images")
 
 
 def _rgba_to_signed_int(rgba: tuple[np.int32, np.int32, np.int32, np.int32]) -> np.int32:
@@ -112,12 +114,14 @@ def prepare_metadata(
     """
     axis_order = determine_axis_order(layer_metadata)
     axis_position = {y: x for x, y in enumerate(axis_order)}
-    axis_size = {y: data_shape[x] for x, y in enumerate(axis_order, start=1)}
+    axis_size = {y: data_shape[x] for x, y in enumerate(axis_order, start=(len(data_shape) - len(axis_order)))}
     axis_to_unit = {}
     spatial_units_from_pint = get_pint_length_unit_to_shortcut()
     units = layer_metadata["units"]
 
     for axis in axis_order:
+        if axis == 'c':
+            continue
         if axis == 't':
             time_units_from_pint = get_pint_time_unit_to_shortcut()
             axis_to_unit['t'] = time_units_from_pint[units[axis_position['t']]]
@@ -126,7 +130,7 @@ def prepare_metadata(
     scale = layer_metadata["scale"]
     translate = layer_metadata["translate"]
     axis_to_translate = {
-        x: translate[axis_position[x]] for x in axis_order
+        x: translate[axis_position[x]] for x in axis_order if x != 'c'
     }
     plane_li = [
         {
@@ -157,6 +161,10 @@ def prepare_metadata(
         pixels["TimeIncrement"] = scale[axis_position['t']]
         pixels["TimeIncrementUnit"] = axis_to_unit['t']
 
+    axes = list(axis_order)
+    if len(axes) < len(data_shape):
+        axes.insert(0, 'c')
+
     metadata = {
         "Pixels": pixels,
         "Plane": plane_li,
@@ -165,7 +173,7 @@ def prepare_metadata(
             "Name": channel_names,
             "Color": [colormap_to_int(c) for c in colormaps],
         },
-        "axes": "".join(['c'] + list(axis_order)).upper(),
+        "axes": "".join(axes).upper(),
     }
     metadata["Name"] = file_name
     return metadata
@@ -175,23 +183,25 @@ def determine_axis_order(layer_metadata: Mapping) -> list[Literal["c", "z", "t",
     """Determine the axis order of an image based on metadata."""
     axis_labels = [x.lower() for x in layer_metadata["axis_labels"]]
     units = layer_metadata["units"]
+    rgb_axis = ['c'] if layer_metadata.get('rgb', False) else []
     if set(axis_labels).issubset("ctzyx"):
-        return list(axis_labels)
+        return list(axis_labels) + rgb_axis
     register = pint.get_application_registry()
     mm = register["mm"].units
     pixels = register["pixels"].units
     s = register["s"].units
+
     if all(mm.is_compatible_with(x) for x in units) or all(x == pixels for x in units):
         if len(units) == 2:
-            return ["y", "x"]
+            return ["y", "x", *rgb_axis]
         elif len(units) == 3:
-            return ["z", "y", "x"]
+            return ["z", "y", "x", *rgb_axis]
 
     if s.is_compatible_with(units[0]) and all(mm.is_compatible_with(x) for x in units[1:]):
         if len(units) == 3:
-            return ["t", "y", "x"]
+            return ["t", "y", "x", *rgb_axis]
         elif len(units) == 4:
-            return ["t", "z", "y", "x"]
+            return ["t", "z", "y", "x", *rgb_axis]
 
     raise ValueError("Cannot determine axis order")  # pragma: no cover
 
@@ -201,7 +211,10 @@ def determine_axis_order(layer_metadata: Mapping) -> list[Literal["c", "z", "t",
 def images_layer_writer(path: str, layer_data: list[FullLayerData]) -> list[str]:
     _check_if_images_could_be_concatenated(layer_data)
     name = os.path.splitext(os.path.basename(path))[0]
-    concatenated_data = np.stack([x[0] for x in layer_data])
+    if len(layer_data) == 1:
+        concatenated_data = layer_data[0][0]
+    else:
+        concatenated_data = np.stack([x[0] for x in layer_data])
     channel_names = [x[1]["name"] for x in layer_data]
     colormaps = [x[1]["colormap"] for x in layer_data]
     metadata = prepare_metadata(layer_data[0][1], name, concatenated_data.shape, channel_names, colormaps)

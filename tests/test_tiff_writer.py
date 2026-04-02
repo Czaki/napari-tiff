@@ -116,3 +116,10 @@ def test_not_match_layer_scale(tmp_path: Path) -> None:
     layer2 = Image(np.random.randint(0, 255, size=(20, 20)).astype(np.uint8), scale=(10,10))
     with pytest.raises(ValueError, match="All images must have the same scale"):
         images_layer_writer(str(tmp_path / "data.tiff"), [layer1.as_layer_data_tuple(), layer2.as_layer_data_tuple()])
+
+def test_write_rgb_image(tmp_path: Path) -> None:
+    layer = Image(np.random.randint(0, 255, size=(20, 20, 3)).astype(np.uint8), rgb=True)
+    writer = images_layer_writer(str(tmp_path / "data.tiff"), [layer.as_layer_data_tuple()])
+    assert writer == [str(tmp_path / "data.tiff")]
+    assert (tmp_path / "data.tiff").exists()
+    npt.assert_equal(tifffile.imread(tmp_path / "data.tiff"), layer.data)
