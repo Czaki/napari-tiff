@@ -169,13 +169,13 @@ def prepare_metadata(
         "Pixels": pixels,
         "Plane": plane_li,
         "Creator": "napari-tiff",
+        "Name": file_name,
         "Channel": {
             "Name": channel_names,
             "Color": [colormap_to_int(c) for c in colormaps],
         },
         "axes": "".join(axes).upper(),
     }
-    metadata["Name"] = file_name
     return metadata
 
 
@@ -206,9 +206,17 @@ def determine_axis_order(layer_metadata: Mapping) -> list[Literal["c", "z", "t",
     raise ValueError("Cannot determine axis order")  # pragma: no cover
 
 
+def _check_multiscale(layer_data: list[FullLayerData]) -> None:
+    """Check if the layer data is multiscale."""
+
+    if any(x[1].get("multiscale", False) for x in layer_data):
+        raise ValueError("Do not support writing multiscale images yet in napari-tiff plugin.")
+
+
 
 
 def images_layer_writer(path: str, layer_data: list[FullLayerData]) -> list[str]:
+    _check_multiscale(layer_data)
     _check_if_images_could_be_concatenated(layer_data)
     name = os.path.splitext(os.path.basename(path))[0]
     if len(layer_data) == 1:
