@@ -210,7 +210,7 @@ def _check_multiscale(layer_data: list[FullLayerData]) -> None:
     """Check if the layer data is multiscale."""
 
     if any(x[1].get("multiscale", False) for x in layer_data):
-        raise ValueError("Do not support writing multiscale images yet in napari-tiff plugin.")
+        raise ValueError("Saving multiscale data is not (yet) supported by napari-tiff.")
 
 
 
