@@ -176,6 +176,8 @@ def get_tiff_metadata(tif: TiffFile) -> dict[str, Any]:
         if channel_axis is not None and shape[channel_axis] > 1:
             contrast_limits = [contrast_limits] * shape[channel_axis]
 
+    scale, units = get_scale_and_units_from_tiff(page, axes)
+
     kwargs = dict(
         rgb=rgb,
         channel_axis=channel_axis,
@@ -185,6 +187,7 @@ def get_tiff_metadata(tif: TiffFile) -> dict[str, Any]:
         contrast_limits=contrast_limits,
         blending=blending,
         visible=visible,
+        units=units,
     )
     return kwargs
 
@@ -411,6 +414,74 @@ def get_ome_tiff_metadata(tif: TiffFile) -> dict[str, Any]:
         units=units or None,
     )
     return kwargs
+
+
+def get_value_units_micrometer(value: float, unit: str = None) -> float:
+    unit_conversions = {
+        "nm": 1e-3,
+        "µm": 1,
+        "\\u00B5m": 1,  # Unicode 'MICRO SIGN' (U+00B5)
+        "um": 1,
+        "micrometer": 1,
+        "mm": 1e3,
+        "cm": 1e4,
+        "m": 1e6,
+    }
+    if unit and unit != "pixels":
+        value_um = value * unit_conversions.get(unit, 1)
+    else:
+        value_um = value
+    return value_um
+
+def get_time_units_seconds(value: float, unit: str = None) -> float:
+    unit_conversions = {
+        "ns": 1e-9,
+        "µs": 1e-6,
+        "\\u00B5s": 1e-6,  # Unicode 'MICRO SIGN' (U+00B5)
+        "us": 1e-6,
+        "ms": 1e-3,
+        "s": 1,
+        "min": 60,
+        "h": 3600,
+    }
+    if unit and unit != "pixels":
+        value_s = value * unit_conversions.get(unit, 1)
+    else:
+        value_s = value
+    return value_s
+
+
+def get_scale_and_units_from_tiff(page, axes):
+    """Extract scale and units from TIFF tags using tifffile properties.
+    
+    Notes
+    ----- 
+    - tiff tags XResolution and YResolution are pixels per ResolutionUnit in ImageWidth and ImageLength respectively
+    - tiff tags ResolutionUnit can be 1 (reserved; no unit), 2 (inch), or 3 (centimeter). 
+    - tifffile treats ResolutionUnit=1 (no unit) as equivalent to meter when performing unit conversions via the unit parameter
+    - tifffile has a helper `get_resolution` that returns pixels per  unit and handles basic unit conversions.
+    """
+    scale_dict = {}
+    units_dict = {}
+
+    if page.resolutionunit == 1 or 282 not in page.tags:
+        # 1 means no unit, but tifffile uses meter as the default
+        # 282 not in page.tags accounts for files that have missing resolution tags
+        x_res, y_res = page.get_resolution()
+        units_dict["X"] = "pixel"
+        units_dict["Y"] = "pixel"
+    else:
+        x_res, y_res = page.get_resolution(unit='micrometer')
+        units_dict["X"] = "µm"
+        units_dict["Y"] = "µm"
+
+    scale_dict["X"] = 1.0 / x_res
+    scale_dict["Y"] = 1.0 / y_res
+
+    scale = tuple(scale_dict.get(ax, 1.0) for ax in axes if ax not in "CS")
+    units = tuple(units_dict.get(ax, "pixel") for ax in axes if ax not in "CS")
+
+    return scale, units
 
 
 def ensure_list(x):
